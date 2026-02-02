@@ -48,41 +48,40 @@ $$
 \mathbf{\sigma} = \mathbf{a}_{measured} - \mathbf{a}_{predicted}
 $$
 
-The HOSM observer estimates $\mathbf{w} = [w_n, w_e]^T$ to drive the innovation $\mathbf{\sigma}$ to zero.
+The HOSM observer estimates $\mathbf{w} = [w_n, w_e]^T$ (or $\mathbf{w} = [w_n, w_e, w_d]^T$ if 3D is enabled) to drive the innovation $\mathbf{\sigma}$ to zero.
 
 ### HOSM Observer Formulation
 
-**State**: $\mathbf{x} = [w_n, w_e]^T$ (wind in NED frame, North and East components)
+**State**: $\mathbf{x} = [w_n, w_e, w_d]^T$ (wind in NED frame). The vertical component $w_d$ is optional.
 
-**Sliding Surface**: $\mathbf{\sigma} = [\sigma_x, \sigma_y]^T$ where:
+**Sliding Surface**: $\mathbf{\sigma} = [\sigma_x, \sigma_y, \sigma_z]^T$ where:
 
 $$
-\sigma_x = a_{measured,x} - a_{predicted,x}(\hat{w}_n, \hat{w}_e)
+\sigma_x = a_{measured,x} - a_{predicted,x}(\hat{\mathbf{w}})
 $$
 $$
-\sigma_y = a_{measured,y} - a_{predicted,y}(\hat{w}_n, \hat{w}_e)
+\sigma_y = a_{measured,y} - a_{predicted,y}(\hat{\mathbf{w}})
 $$
+$$
+\sigma_z = a_{measured,z} - a_{predicted,z}(\hat{\mathbf{w}}) \quad (\text{if 3D enabled})
+$$
+
+**Note on Z-axis**: For the vertical component, the measured acceleration from IMU contains a large thrust component which must be accounted for (subtracted) to isolate drag forces, or the drag model must be adjusted to include thrust.
 
 **Super-Twisting HOSM Observer**:
 
 We assume the wind is constant or slowly varying ($\dot{\mathbf{w}} \approx 0$). The observer updates the wind estimate $\hat{\mathbf{w}}$ using the Super-Twisting Algorithm (STA):
 
-**Observer Dynamics**:
+**Observer Dynamics** (for $i \in \{n, e, d\}$):
 
 $$
-\dot{\hat{w}}_n = -\lambda_1 |\sigma_n|^{1/2} \text{sign}(\sigma_n) + v_{1,n}
-$$
-$$
-\dot{\hat{w}}_e = -\lambda_1 |\sigma_e|^{1/2} \text{sign}(\sigma_e) + v_{1,e}
+\dot{\hat{w}}_i = -\lambda_1 |\sigma_i|^{1/2} \text{sign}(\sigma_i) + v_{1,i}
 $$
 
 **Auxiliary State Dynamics**:
 
 $$
-\dot{v}_{1,n} = -\lambda_2 \text{sign}(\sigma_n)
-$$
-$$
-\dot{v}_{1,e} = -\lambda_2 \text{sign}(\sigma_e)
+\dot{v}_{1,i} = -\lambda_2 \text{sign}(\sigma_i)
 $$
 
 Where $\lambda_1$ and $\lambda_2$ are the observer gains.
@@ -198,7 +197,9 @@ private:
         (ParamFloat<px4::params::HOSM_BCOEF_Y>) _param_hosm_bcoef_y,
         (ParamFloat<px4::params::HOSM_MCOEF>) _param_hosm_mcoef,
         (ParamFloat<px4::params::HOSM_DRAG_NOISE>) _param_hosm_drag_noise,
-        (ParamInt<px4::params::HOSM_WIND_ENABLE>) _param_hosm_wind_enable
+        (ParamInt<px4::params::HOSM_WIND_ENABLE>) _param_hosm_wind_enable,
+        (ParamInt<px4::params::HOSM_WIND_USE_3D>) _param_hosm_wind_use_3d,
+        (ParamFloat<px4::params::HOSM_BCOEF_Z>) _param_hosm_bcoef_z
     )
 };
 ```
@@ -212,16 +213,20 @@ public:
     ~HosmWindObserver() = default;
 
     // Core observer update with drag measurements
-    void update(const matrix::Vector2f &accel_body_xy,
+    // accel_body can be 2D (xy) or 3D (xyz) depending on usage
+    void update(const matrix::Vector3f &accel_body,
                 const matrix::Vector3f &velocity_ground_ned,
                 const matrix::Quatf &attitude,
                 float air_density,
                 float dt);
 
     // State access
-    matrix::Vector2f getWindEstimate() const { return _wind_state; }
-    matrix::Vector2f getWindVariance() const { return _wind_variance; }
-    matrix::Vector2f getSlidingVariable() const { return _sliding_surface; }
+    matrix::Vector3f getWindEstimate() const { return _wind_state; }
+    matrix::Vector3f getWindVariance() const { return _wind_variance; }
+    matrix::Vector3f getSlidingVariable() const { return _sliding_surface; }
+
+    // Configuration
+    void setUse3D(bool use_3d) { _use_3d = use_3d; }
 
     // Diagnostic access
     float getConvergenceMetric() const { return _convergence_metric; }
@@ -236,10 +241,12 @@ public:
 
 private:
     // State
-    matrix::Vector2f _wind_state{0.f, 0.f};           // [w_n, w_e]
-    matrix::Vector2f _aux_state{0.f, 0.f};            // [v1_n, v1_e]
-    matrix::Vector2f _sliding_surface{0.f, 0.f};      // [σ_x, σ_y]
-    matrix::Vector2f _wind_variance{100.f, 100.f};
+    matrix::Vector3f _wind_state{0.f, 0.f, 0.f};      // [w_n, w_e, w_d]
+    matrix::Vector3f _aux_state{0.f, 0.f, 0.f};       // [v1_n, v1_e, v1_d]
+    matrix::Vector3f _sliding_surface{0.f, 0.f, 0.f}; // [σ_x, σ_y, σ_z]
+    matrix::Vector3f _wind_variance{100.f, 100.f, 100.f};
+
+    bool _use_3d{false};
 
     // Observer gains
     float _lambda1{2.0f};
@@ -249,6 +256,7 @@ private:
     // Drag model parameters
     float _bcoef_x{25.0f};   // Bluff body drag coefficient X (inverse)
     float _bcoef_y{25.0f};   // Bluff body drag coefficient Y (inverse)
+    float _bcoef_z{25.0f};   // Bluff body drag coefficient Z (inverse)
     float _mcoef{0.1f};      // Rotor momentum drag coefficient
 
     // Convergence tracking
@@ -272,7 +280,7 @@ private:
 ### Core HOSM Update Method
 
 ```cpp
-void HosmWindObserver::update(const Vector2f &accel_body_xy,
+void HosmWindObserver::update(const Vector3f &accel_body,
                                const Vector3f &v_ground_ned,
                                const Quatf &q_att,
                                float rho,
@@ -284,7 +292,12 @@ void HosmWindObserver::update(const Vector2f &accel_body_xy,
     }
 
     // 1. Compute relative velocity in body frame
-    Vector3f wind_ned(_wind_state(0), _wind_state(1), 0.f);
+    // Use 3D wind state if enabled, otherwise 0 for vertical wind
+    Vector3f wind_ned = _wind_state;
+    if (!_use_3d) {
+        wind_ned(2) = 0.f;
+    }
+
     Vector3f rel_vel_ned = v_ground_ned - wind_ned;
     Vector3f rel_vel_body = q_att.rotateVectorInverse(rel_vel_ned);
     float rel_vel_norm = rel_vel_body.norm();
@@ -292,41 +305,62 @@ void HosmWindObserver::update(const Vector2f &accel_body_xy,
     // 2. Predict drag acceleration in body frame
     float bcoef_inv_x = 1.0f / _bcoef_x;
     float bcoef_inv_y = 1.0f / _bcoef_y;
+    float bcoef_inv_z = 1.0f / _bcoef_z;
 
-    // Drag model (EKF2 formulation)
-    Vector2f a_drag_pred;
+    // Drag model
+    Vector3f a_drag_pred;
     a_drag_pred(0) = -0.5f * bcoef_inv_x * rho * rel_vel_body(0) * rel_vel_norm
                      - rel_vel_body(0) * _mcoef;
     a_drag_pred(1) = -0.5f * bcoef_inv_y * rho * rel_vel_body(1) * rel_vel_norm
                      - rel_vel_body(1) * _mcoef;
 
+    if (_use_3d) {
+        // Warning: Requires thrust compensation in accel_body(2) or here
+        a_drag_pred(2) = -0.5f * bcoef_inv_z * rho * rel_vel_body(2) * rel_vel_norm
+                         - rel_vel_body(2) * _mcoef;
+    }
+
     // 3. Compute sliding surface (innovation)
-    _sliding_surface = accel_body_xy - a_drag_pred;
+    _sliding_surface(0) = accel_body(0) - a_drag_pred(0);
+    _sliding_surface(1) = accel_body(1) - a_drag_pred(1);
+
+    if (_use_3d) {
+         _sliding_surface(2) = accel_body(2) - a_drag_pred(2);
+    } else {
+         _sliding_surface(2) = 0.f;
+    }
 
     // 4. Super-Twisting observer dynamics
-    Vector2f sigma_sqrt_sign;
-    sigma_sqrt_sign(0) = sqrtf(fabsf(_sliding_surface(0))) *
-                         smoothSign(_sliding_surface(0), _epsilon_smooth);
-    sigma_sqrt_sign(1) = sqrtf(fabsf(_sliding_surface(1))) *
-                         smoothSign(_sliding_surface(1), _epsilon_smooth);
+    Vector3f sigma_sqrt_sign(0.f, 0.f, 0.f);
+    Vector3f sigma_sign(0.f, 0.f, 0.f);
 
-    Vector2f sigma_sign;
-    sigma_sign(0) = smoothSign(_sliding_surface(0), _epsilon_smooth);
-    sigma_sign(1) = smoothSign(_sliding_surface(1), _epsilon_smooth);
+    for (int i = 0; i < 3; i++) {
+        if (!_use_3d && i == 2) continue;
+
+        sigma_sqrt_sign(i) = sqrtf(fabsf(_sliding_surface(i))) *
+                             smoothSign(_sliding_surface(i), _epsilon_smooth);
+        sigma_sign(i) = smoothSign(_sliding_surface(i), _epsilon_smooth);
+    }
 
     // 5. State update (Euler integration)
-    Vector2f wind_dot = -_lambda1 * sigma_sqrt_sign + _aux_state;
-    Vector2f aux_dot = -_lambda2 * sigma_sign;
+    Vector3f wind_dot = -_lambda1 * sigma_sqrt_sign + _aux_state;
+    Vector3f aux_dot = -_lambda2 * sigma_sign;
+
+    if (!_use_3d) {
+        wind_dot(2) = 0.f;
+        aux_dot(2) = 0.f;
+    }
 
     _wind_state += wind_dot * dt;
     _aux_state += aux_dot * dt;
 
     // 6. Constrain wind estimate
-    _wind_state(0) = math::constrain(_wind_state(0), -30.f, 30.f);
-    _wind_state(1) = math::constrain(_wind_state(1), -30.f, 30.f);
+    for (int i = 0; i < 3; i++) {
+         _wind_state(i) = math::constrain(_wind_state(i), -30.f, 30.f);
+    }
 
     // 7. Update variance and convergence
-    updateVarianceEstimate(_sliding_surface, dt);
+    updateVarianceEstimate(_sliding_surface, dt); // needs update for 3D
     updateConvergenceMetric(dt);
 }
 ```
@@ -363,10 +397,12 @@ void WindEstimatorHosm::Run()
 
     // Convert delta_velocity to acceleration
     float dt_imu = imu.delta_velocity_dt * 1e-6f;  // Convert to seconds
-    Vector2f accel_xy(imu.delta_velocity[0] / dt_imu,
-                      imu.delta_velocity[1] / dt_imu);
+    // Use 3D acceleration
+    Vector3f accel(imu.delta_velocity[0] / dt_imu,
+                   imu.delta_velocity[1] / dt_imu,
+                   imu.delta_velocity[2] / dt_imu);
 
-    _imu_accel_accum += accel_xy;
+    _imu_accel_accum += accel;
     _imu_sample_count++;
 
     if (_imu_sample_count < imu_downsample_ratio) {
@@ -375,7 +411,7 @@ void WindEstimatorHosm::Run()
     }
 
     // Average accelerations
-    Vector2f accel_avg = _imu_accel_accum / (float)_imu_sample_count;
+    Vector3f accel_avg = _imu_accel_accum / (float)_imu_sample_count;
     _imu_accel_accum.zero();
     _imu_sample_count = 0;
 
@@ -529,6 +565,16 @@ PARAM_DEFINE_FLOAT(HOSM_BCOEF_X, 25.0);
 PARAM_DEFINE_FLOAT(HOSM_BCOEF_Y, 25.0);
 
 /**
+ * Bluff body drag coefficient Z (inverse)
+ * @min 5.0
+ * @max 100.0
+ * @unit m^2/kg
+ * @decimal 1
+ * @group Wind Estimator HOSM
+ */
+PARAM_DEFINE_FLOAT(HOSM_BCOEF_Z, 25.0);
+
+/**
  * Rotor momentum drag coefficient
  * Should match EKF2_MCOEF for consistency
  * @min 0.0
@@ -574,12 +620,20 @@ PARAM_DEFINE_FLOAT(HOSM_LIPSCHITZ, 8.0);
  * @group Wind Estimator HOSM
  */
 PARAM_DEFINE_INT32(HOSM_AUTO_TUNE, 1);
+
+/**
+ * Enable 3D wind estimation (estimate vertical wind)
+ * @boolean
+ * @group Wind Estimator HOSM
+ */
+PARAM_DEFINE_INT32(HOSM_WIND_USE_3D, 0);
 ```
 
 ## 5. Output and Integration
 
 ### Message Format
-Reuse existing `Wind.msg` with multi-instance publication:
+Reuse existing `Wind.msg` with multi-instance publication.
+**Note**: `Wind.msg` needs to be extended to support `windspeed_down` and `variance_down` for 3D output.
 
 ```cpp
 void WindEstimatorHosm::publishWindEstimate(const hrt_abstime &timestamp_sample)
@@ -589,13 +643,15 @@ void WindEstimatorHosm::publishWindEstimate(const hrt_abstime &timestamp_sample)
     wind.timestamp_sample = timestamp_sample;
     wind.timestamp = hrt_absolute_time();
 
-    Vector2f wind_est = _hosm_observer.getWindEstimate();
+    Vector3f wind_est = _hosm_observer.getWindEstimate();
     wind.windspeed_north = wind_est(0);
     wind.windspeed_east = wind_est(1);
+    // wind.windspeed_down = wind_est(2); // Requires msg update
 
-    Vector2f wind_var = _hosm_observer.getWindVariance();
+    Vector3f wind_var = _hosm_observer.getWindVariance();
     wind.variance_north = wind_var(0);
     wind.variance_east = wind_var(1);
+    // wind.variance_down = wind_var(2); // Requires msg update
 
     // Drag-based method doesn't use airspeed/sideslip
     wind.tas_innov = NAN;
@@ -697,16 +753,17 @@ TEST(HosmWindObserver, ConvergenceWithConstantWind)
         Vector3f v_rel_body = q_att.rotateVectorInverse(v_rel_ned);
         float rel_norm = v_rel_body.norm();
 
-        Vector2f accel_drag;
+        Vector3f accel_drag;
         accel_drag(0) = -0.5f * (1.f/25.f) * rho * v_rel_body(0) * rel_norm
                         - v_rel_body(0) * 0.1f;
         accel_drag(1) = -0.5f * (1.f/25.f) * rho * v_rel_body(1) * rel_norm
                         - v_rel_body(1) * 0.1f;
+        accel_drag(2) = 0.f; // Assume no vertical drag/thrust for this 2D test case
 
         obs.update(accel_drag, v_ground_ned, q_att, rho, 0.01f);
     }
 
-    Vector2f wind = obs.getWindEstimate();
+    Vector3f wind = obs.getWindEstimate();
     EXPECT_NEAR(wind(0), wind_true_n, 1.0f);
     EXPECT_NEAR(wind(1), wind_true_e, 0.5f);
 }
