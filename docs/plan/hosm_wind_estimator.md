@@ -15,59 +15,109 @@ Implement a standalone Higher-Order Sliding Mode (HOSM) wind estimator module fo
 
 ### Physical Model
 
-For a multirotor, wind creates a relative velocity that induces drag forces on the vehicle. These drag forces appear as accelerations measured by the IMU:
+For a multirotor, wind creates a relative velocity that induces drag forces on the vehicle. These drag forces appear as accelerations measured by the IMU.
 
-**Drag Model** (from EKF2 drag_fusion.cpp:128):
-```
-a_drag = -0.5 * (1/bcoef) * rho * v_rel * |v_rel| - v_rel * mcoef
-```
+**Drag Model** (from EKF2 `drag_fusion.cpp`):
+
+$$
+\mathbf{a}_{drag} = -\frac{1}{2} \frac{\rho}{B} \mathbf{v}_{rel} \|\mathbf{v}_{rel}\| - M \mathbf{v}_{rel}
+$$
 
 Where:
-- `a_drag`: Drag acceleration in body frame (m/s²)
-- `bcoef`: Bluff body drag coefficient (inverse) [m²/kg]
-- `rho`: Air density (kg/m³)
-- `v_rel`: Relative velocity in body frame = R_body_ned^-1 * (v_ground - wind)
-- `mcoef`: Rotor momentum drag coefficient [1/s]
-- `v_ground`: Ground velocity in NED frame (from GPS)
-- `wind`: Wind velocity in NED frame [w_n, w_e] (to be estimated)
+- $\mathbf{a}_{drag}$: Drag acceleration in body frame ($m/s^2$)
+- $B$: Bluff body drag coefficient (inverse) [`bcoef`, $m^2/kg$]
+- $\rho$: Air density ($kg/m^3$)
+- $\mathbf{v}_{rel}$: Relative velocity in body frame: $\mathbf{v}_{rel} = R_{NB}^T (\mathbf{v}_{ground} - \mathbf{w})$
+- $M$: Rotor momentum drag coefficient [`mcoef`, $1/s$]
+- $\mathbf{v}_{ground}$: Ground velocity in NED frame (from GPS)
+- $\mathbf{w}$: Wind velocity in NED frame $[w_n, w_e]$ (to be estimated)
 
 **Measurement Model**:
-```
-a_measured = a_imu - a_bias  (body frame, from IMU)
-a_predicted = drag_model(v_ground, wind, attitude, rho, drag_params)
-innovation = a_measured - a_predicted
-```
 
-The HOSM observer estimates `wind = [w_n, w_e]` to drive the innovation to zero.
+$$
+\mathbf{a}_{measured} = \mathbf{a}_{imu} - \mathbf{a}_{bias} \quad (\text{body frame, from IMU})
+$$
+
+$$
+\mathbf{a}_{predicted} = f_{drag}(\mathbf{v}_{ground}, \mathbf{w}, \mathbf{q}, \rho)
+$$
+
+The innovation (sliding variable) is defined as:
+
+$$
+\mathbf{\sigma} = \mathbf{a}_{measured} - \mathbf{a}_{predicted}
+$$
+
+The HOSM observer estimates $\mathbf{w} = [w_n, w_e]^T$ to drive the innovation $\mathbf{\sigma}$ to zero.
 
 ### HOSM Observer Formulation
 
-**State**: `x = [w_n, w_e]^T` (wind in NED frame, North and East components)
+**State**: $\mathbf{x} = [w_n, w_e]^T$ (wind in NED frame, North and East components)
 
-**Sliding Surface**: `σ = [σ_x, σ_y]^T` where:
-```
-σ_x = a_measured_x - a_predicted_x(w_n, w_e)
-σ_y = a_measured_y - a_predicted_y(w_n, w_e)
-```
+**Sliding Surface**: $\mathbf{\sigma} = [\sigma_x, \sigma_y]^T$ where:
+
+$$
+\sigma_x = a_{measured,x} - a_{predicted,x}(\hat{w}_n, \hat{w}_e)
+$$
+$$
+\sigma_y = a_{measured,y} - a_{predicted,y}(\hat{w}_n, \hat{w}_e)
+$$
 
 **Super-Twisting HOSM Observer**:
-```
-State dynamics:
-ẇ_n = v₁_n
-ẇ_e = v₁_e
 
-Observer equations:
-ŵ̇_n = -λ₁ |σ_n|^(1/2) sign(σ_n) + v₁_n
-ŵ̇_e = -λ₁ |σ_e|^(1/2) sign(σ_e) + v₁_e
+We assume the wind is constant or slowly varying ($\dot{\mathbf{w}} \approx 0$). The observer updates the wind estimate $\hat{\mathbf{w}}$ using the Super-Twisting Algorithm (STA):
 
-Auxiliary state:
-v̇₁_n = -λ₂ sign(σ_n)
-v̇₁_e = -λ₂ sign(σ_e)
+**Observer Dynamics**:
 
-Where σ_n, σ_e are computed from body X, Y drag innovations
-```
+$$
+\dot{\hat{w}}_n = -\lambda_1 |\sigma_n|^{1/2} \text{sign}(\sigma_n) + v_{1,n}
+$$
+$$
+\dot{\hat{w}}_e = -\lambda_1 |\sigma_e|^{1/2} \text{sign}(\sigma_e) + v_{1,e}
+$$
+
+**Auxiliary State Dynamics**:
+
+$$
+\dot{v}_{1,n} = -\lambda_2 \text{sign}(\sigma_n)
+$$
+$$
+\dot{v}_{1,e} = -\lambda_2 \text{sign}(\sigma_e)
+$$
+
+Where $\lambda_1$ and $\lambda_2$ are the observer gains.
 
 **Key difference from airspeed-based**: The innovation comes from IMU acceleration residuals rather than airspeed measurement residuals.
+
+### Mathematical Grounding
+
+The Super-Twisting Algorithm (STA) is a continuous second-order sliding mode controller/observer that ensures finite-time convergence to the sliding manifold $\sigma = 0$ and $\dot{\sigma} = 0$ in the presence of bounded disturbances.
+
+The dynamics of the sliding variable $\sigma$ can be linearized around the operating point as:
+
+$$
+\dot{\sigma} \approx \frac{\partial \sigma}{\partial \hat{\mathbf{w}}} \dot{\hat{\mathbf{w}}} + \Delta(\cdot)
+$$
+
+Let $u = \dot{\hat{\mathbf{w}}}$. By choosing $u$ according to the STA control law, we ensure that the error dynamics are stable.
+
+**Stability and Convergence**:
+
+The stability of the STA is guaranteed by the following Lyapunov function candidate:
+
+$$
+V(\sigma, v_1) = \mathbf{\xi}^T P \mathbf{\xi}
+$$
+
+where vector $\mathbf{\xi} = [|\sigma|^{1/2} \text{sign}(\sigma), v_1]^T$ and $P$ is a symmetric positive definite matrix.
+
+Under the condition that the disturbance term $|\dot{\Delta}| \leq L$ (Lipschitz constant), and with appropriate gains satisfying:
+
+$$
+\lambda_1 > 1.5 \sqrt{L}, \quad \lambda_2 > 1.1 L
+$$
+
+The system trajectories converge to the origin $\sigma = 0, \dot{\sigma} = 0$ in finite time $T < \infty$. This implies that the estimated wind $\hat{\mathbf{w}}$ converges to the true wind $\mathbf{w}$ robustly.
 
 ## 2. Module Structure
 
