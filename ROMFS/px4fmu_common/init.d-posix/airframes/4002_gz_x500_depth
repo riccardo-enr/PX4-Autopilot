@@ -8,3 +8,9 @@
 PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_depth}
 
 . ${R}etc/init.d-posix/airframes/4001_gz_x500
+
+# External vision fusion for GPS-denied environments
+param set-default EKF2_EV_CTRL 15      # Fuse: horiz pos + vert pos + 3D vel + yaw
+param set-default EKF2_HGT_REF 3       # Height reference = Vision
+param set-default EKF2_GPS_CTRL 0       # Disable GPS fusion
+param set-default EKF2_EV_DELAY 0       # No delay (Gazebo ground truth)
