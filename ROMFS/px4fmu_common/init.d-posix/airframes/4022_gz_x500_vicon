@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# @name Gazebo x500 fake vicon
+#
+# @type Quadrotor
+#
+
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=x500_vicon}
+
+. ${R}etc/init.d-posix/airframes/4001_gz_x500
+
+# Fake VICON: fuse Gazebo ground truth as external vision (mocap)
+param set-default EKF2_EV_CTRL 15      # Fuse: horiz pos + vert pos + 3D vel + yaw
+param set-default EKF2_HGT_REF 3       # Height reference = Vision
+param set-default EKF2_GPS_CTRL 0       # Disable GPS fusion
+param set-default EKF2_EV_DELAY 0       # No delay (Gazebo ground truth)
+param set-default EKF2_EVP_NOISE 0.01   # Low position noise (ground truth)
+param set-default EKF2_EVA_NOISE 0.01   # Low angle noise (ground truth)
