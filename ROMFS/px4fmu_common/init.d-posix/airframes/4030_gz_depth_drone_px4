@@ -1,0 +1,81 @@
+#!/bin/sh
+#
+# @name Depth Drone PX4 (Custom X-Quad for Exploration)
+# @type Quadrotor x
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+PX4_SIMULATOR=${PX4_SIMULATOR:=gz}
+PX4_GZ_WORLD=${PX4_GZ_WORLD:=default}
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=depth_drone_px4}
+
+param set-default SIM_GZ_EN 1
+param set-default SENS_EN_GPSSIM 1
+param set-default SENS_EN_MAGSIM 1
+param set-default SENS_EN_BAROSIM 1
+
+# Velocity limits (match waypoint follower expectations)
+param set-default MPC_XY_VEL_MAX 1.5
+param set-default MPC_Z_VEL_MAX_UP 1.0
+param set-default MPC_Z_VEL_MAX_DN 0.5
+
+# Acceleration limits
+param set-default MPC_ACC_HOR_MAX 2.0
+param set-default MPC_ACC_UP_MAX 3.0
+param set-default MPC_ACC_DOWN_MAX 1.5
+
+# Tune for 1.5kg quad (lighter than x500's 2.5kg)
+# Rate controllers
+param set-default MC_ROLLRATE_P 0.15
+param set-default MC_PITCHRATE_P 0.15
+param set-default MC_ROLLRATE_I 0.2
+param set-default MC_PITCHRATE_I 0.2
+param set-default MC_ROLLRATE_D 0.003
+param set-default MC_PITCHRATE_D 0.003
+
+# Yaw control
+param set-default MC_YAW_P 2.5
+param set-default MC_YAWRATE_P 0.2
+
+# Position/velocity control
+param set-default MPC_XY_VEL_P_ACC 2.0
+param set-default MPC_XY_VEL_I_ACC 0.4
+param set-default MPC_XY_VEL_D_ACC 0.2
+param set-default MPC_Z_VEL_P_ACC 5.0
+param set-default MPC_Z_VEL_I_ACC 1.0
+param set-default MPC_Z_VEL_D_ACC 0.0
+
+# Thrust curve (for custom motor constant 2.5e-05)
+param set-default THR_MDL_FAC 0.3
+
+# Offboard mode failsafe (allow operation without RC)
+param set-default COM_RCL_EXCEPT 4
+
+# Offboard loss failsafe - hold position
+param set-default COM_OBL_RC_ACT 0
+
+# Set mixer for X-configuration quadcopter
+param set-default CA_AIRFRAME 0
+param set-default CA_ROTOR_COUNT 4
+
+# Configure rotor geometry for X-quad with 0.15m arms
+# Rotor 0: front-right (CCW)
+param set-default CA_ROTOR0_PX 0.15
+param set-default CA_ROTOR0_PY -0.15
+param set-default CA_ROTOR0_KM -0.05
+
+# Rotor 1: rear-left (CCW)
+param set-default CA_ROTOR1_PX -0.15
+param set-default CA_ROTOR1_PY 0.15
+param set-default CA_ROTOR1_KM -0.05
+
+# Rotor 2: front-left (CW)
+param set-default CA_ROTOR2_PX 0.15
+param set-default CA_ROTOR2_PY 0.15
+param set-default CA_ROTOR2_KM 0.05
+
+# Rotor 3: rear-right (CW)
+param set-default CA_ROTOR3_PX -0.15
+param set-default CA_ROTOR3_PY -0.15
+param set-default CA_ROTOR3_KM 0.05
