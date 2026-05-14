@@ -89,6 +89,7 @@ px4_add_romfs_files(
 	4020_gz_tiltrotor
 	4021_gz_x500_flow
 	4022_gz_x500_vicon
+	4023_gz_rover_differential_lidar_2d
 	4030_gz_depth_drone_px4
 
 	6011_gazebo-classic_typhoon_h480
