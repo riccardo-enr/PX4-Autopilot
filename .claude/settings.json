@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/usr/bin/git -C /home/riccardo/px4/my-px4 status --short)"
+      "Bash(/usr/bin/git -C /home/riccardo/px4/my-px4 status --short)",
+      "Bash(/usr/bin/git -C /home/riccardo/px4/my-px4/Tools/simulation/gz status --short)"
     ]
   }
 }
