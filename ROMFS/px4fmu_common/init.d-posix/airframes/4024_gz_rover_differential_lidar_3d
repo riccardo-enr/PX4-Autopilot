@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# @name Gazebo rover_differential with 3D lidar
+#
+# @type Rover
+# @class Rover
+#
+
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=rover_differential_lidar_3d}
+
+. ${R}etc/init.d-posix/airframes/4009_gz_r1_rover
+
+# Override wheel track for the rover_differential chassis (rear wheels at y = +/-0.3 m)
+param set-default RD_WHEEL_TRACK 0.6
