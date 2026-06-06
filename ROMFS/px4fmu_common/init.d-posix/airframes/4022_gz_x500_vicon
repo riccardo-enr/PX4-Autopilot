@@ -16,3 +16,4 @@ param set-default EKF2_GPS_CTRL 0       # Disable GPS fusion
 param set-default EKF2_EV_DELAY 0       # No delay (Gazebo ground truth)
 param set-default EKF2_EVP_NOISE 0.01   # Low position noise (ground truth)
 param set-default EKF2_EVA_NOISE 0.01   # Low angle noise (ground truth)
+param set-default COM_ARM_WO_GPS 1      # Allow arming without GPS (EV provides local pos only)
