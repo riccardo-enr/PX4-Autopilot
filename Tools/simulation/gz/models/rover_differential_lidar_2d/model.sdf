@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sdf version='1.9'>
+  <model name='rover_differential_lidar_2d'>
+    <include merge='true'>
+      <uri>model://rover_differential</uri>
+    </include>
+    <include merge='true'>
+      <uri>model://lidar_2d_v2</uri>
+      <pose>0 0 0.2 0 0 0</pose>
+    </include>
+    <joint name="LidarJoint" type="fixed">
+      <parent>base_link</parent>
+      <child>link</child>
+      <pose relative_to="base_link">0 0 0.2 0 0 0</pose>
+    </joint>
+  </model>
+</sdf>

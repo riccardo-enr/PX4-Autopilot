@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/px4_gz_scenes"]
+
+[project]
+name = "px4-gz-scenes"
+version = "0.1.0"
+description = "Declarative Python scene definitions for PX4/Gazebo research environments"
+requires-python = ">=3.11"
+dependencies = ["numpy"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+vis = ["matplotlib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/scenes"]
+addopts = "-p no:ament_flake8 -p no:ament_pep257 -p no:ament_lint -p no:ament_copyright -p no:launch_testing -p no:ament_xmllint -p no:launch_testing_ros -p no:launch_testing_ros_pytest_entrypoint"

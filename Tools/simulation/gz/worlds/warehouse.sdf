@@ -1,0 +1,356 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="warehouse">
+
+    <!-- Physics -->
+    <physics name="1ms" type="ode">
+      <max_step_size>0.004</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>250</real_time_update_rate>
+    </physics>
+
+    <!-- PX4 Required: Gravity and magnetic field for IMU/mag sensors -->
+    <gravity>0 0 -9.8</gravity>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type="adiabatic"/>
+
+    <!-- Scene configuration -->
+    <scene>
+      <ambient>0.4 0.4 0.4 1</ambient>
+      <grid>false</grid>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- Required plugins -->
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics" />
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster" />
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands" />
+
+    <!-- Lighting -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <!-- Ground plane -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>20 20</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>20 20</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.6 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Walls (20x20m room, 4m high, 0.2m thick) -->
+    <!-- North wall -->
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0 10.1 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>20.4 0.2 4</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>20.4 0.2 4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.65 1</ambient>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- South wall -->
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0 -10.1 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>20.4 0.2 4</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>20.4 0.2 4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.65 1</ambient>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- East wall -->
+    <model name="wall_east">
+      <static>true</static>
+      <pose>10.1 0 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.2 20 4</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.2 20 4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.65 1</ambient>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- West wall -->
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-10.1 0 2 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.2 20 4</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.2 20 4</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.7 0.7 0.65 1</ambient>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Ceiling -->
+    <model name="ceiling">
+      <static>true</static>
+      <pose>0 0 4.1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>20.4 20.4 0.2</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>20.4 20.4 0.2</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.75 1</ambient>
+          </material>
+          <transparency>0.5</transparency>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 1: Large box (2x2x2m) at (3, 0) — matches mock_scene_node -->
+    <model name="obstacle_box_1">
+      <static>true</static>
+      <pose>3 0 1 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>2 2 2</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>2 2 2</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.6 0.3 0.2 1</ambient>
+            <diffuse>0.7 0.4 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 2: Tall box (1.5x1.5x3m) at (-2, 3) — matches mock_scene_node -->
+    <model name="obstacle_box_2">
+      <static>true</static>
+      <pose>-2 3 1.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>1.5 1.5 3</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1.5 1.5 3</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.5 0.3 1</ambient>
+            <diffuse>0.4 0.6 0.4 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 3: Small box (1x1x1.5m) at (-3, -4) — matches mock_scene_node -->
+    <model name="obstacle_box_3">
+      <static>true</static>
+      <pose>-3 -4 0.75 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>1 1 1.5</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>1 1 1.5</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.6 1</ambient>
+            <diffuse>0.4 0.4 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 4: Cylinder (r=0.8, h=2.5) at (5, -5) -->
+    <model name="obstacle_cyl_1">
+      <static>true</static>
+      <pose>5 -5 1.25 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.8</radius>
+              <length>2.5</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.8</radius>
+              <length>2.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.5 0.4 0.2 1</ambient>
+            <diffuse>0.6 0.5 0.3 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 5: Wide low box (3x1x1m) at (-6, -2) -->
+    <model name="obstacle_box_4">
+      <static>true</static>
+      <pose>-6 -2 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>3 1 1</size>
+            </box>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>3 1 1</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.5 0.2 0.5 1</ambient>
+            <diffuse>0.6 0.3 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Obstacle 6: Cylinder (r=0.5, h=3.5) at (6, 6) -->
+    <model name="obstacle_cyl_2">
+      <static>true</static>
+      <pose>6 6 1.75 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <cylinder>
+              <radius>0.5</radius>
+              <length>3.5</length>
+            </cylinder>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <cylinder>
+              <radius>0.5</radius>
+              <length>3.5</length>
+            </cylinder>
+          </geometry>
+          <material>
+            <ambient>0.2 0.5 0.5 1</ambient>
+            <diffuse>0.3 0.6 0.6 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

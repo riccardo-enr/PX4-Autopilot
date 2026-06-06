@@ -1,0 +1,11 @@
+sdf_parsing/build/
+
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.pixi/
+.venv/
